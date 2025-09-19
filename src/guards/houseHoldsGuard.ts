@@ -1,5 +1,5 @@
 import { CreateHouseholdInput } from '../types';
-import { isHouseholdKind } from '../domain';
+import { isHouseholdKind } from '../domain/household';
 
 export function guardCreateHouseholdBody(body: any): CreateHouseholdInput {
     const { kind, address, postalCode, anchorAt } = body ?? {};

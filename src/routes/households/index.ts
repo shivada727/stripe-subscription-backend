@@ -5,6 +5,7 @@ export const households = Router();
 
 const controller = new HouseholdController();
 
-households.post('/households', controller.create);
+households.post('/households', controller.createPlan);
+households.post('/households/:id/join', controller.joinPlan);
 
 export default households;
