@@ -1,5 +1,5 @@
-import { Schema, model } from 'mongoose';
 import { MEMBER_STATUSES, MEMBER_ROLES } from '../../domain/members';
+import { Schema, model } from 'mongoose';
 
 const MemberSchema = new Schema(
     {

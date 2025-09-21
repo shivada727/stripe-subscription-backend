@@ -1,5 +1,5 @@
-import { Schema, model } from 'mongoose';
 import { HOUSEHOLD_KINDS } from '../../domain/household/index';
+import { Schema, model } from 'mongoose';
 
 const HouseholdSchema = new Schema(
     {
