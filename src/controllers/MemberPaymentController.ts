@@ -1,31 +1,16 @@
 import { MemberPaymentService } from '../services/MemberPaymentService';
-import type { Request, Response } from 'express';
-
-const service = new MemberPaymentService();
+import { HttpStatus } from '../domain/httpStatuses';
+import { Request, Response } from 'express';
 
 export class MemberPaymentController {
-    createSetupIntent = async (request: Request, response: Response) => {
-        try {
-            const { id } = request.params;
+    constructor(private readonly service = new MemberPaymentService()) {}
+    public async createSetupIntent(request: Request, response: Response) {
+        const { id } = request.params;
 
-            const payload = await service.createSetupIntent(id);
+        if (!id) throw new Error('member_id_required');
 
-            return response.status(201).json(payload);
-        } catch (error: any) {
-            const message = String(error?.message || '');
-            const code =
-                message === 'member_not_found'
-                    ? 404
-                    : message === 'member_missing_customer'
-                    ? 409
-                    : 500;
+        const payload = await this.service.createSetupIntent(id);
 
-            if (code !== 500)
-                return response.status(code).json({ error: message });
-
-            console.error('[MemberPaymentController.createSetupIntent]', error);
-
-            return response.status(500).json({ error: 'internal_error' });
-        }
-    };
+        return response.status(HttpStatus.CREATED).json(payload);
+    }
 }

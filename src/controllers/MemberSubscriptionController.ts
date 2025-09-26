@@ -1,60 +1,37 @@
-import { MemberSubscriptionService } from '../services/MemberSubscriptionService';
 import type { Request, Response } from 'express';
-
-const service = new MemberSubscriptionService();
+import { MemberSubscriptionService } from '../services/MemberSubscriptionService';
+import { HttpStatus } from '../domain/httpStatuses';
 
 export class MemberSubscriptionController {
-    subscribe = async (request: Request, response: Response) => {
-        try {
-            const { id } = request.params;
+    constructor(private readonly service = new MemberSubscriptionService()) {}
 
-            const payload = await service.subscribe(id);
+    public async subscribe(request: Request, response: Response) {
+        const { id } = request.params;
 
-            return response.status(201).json(payload);
-        } catch (error: any) {
-            const message = String(error?.message || '');
+        if (!id) {
+            const error: any = new Error('member_id_required');
 
-            const code =
-                message === 'member_not_found'
-                    ? 404
-                    : message === 'member_missing_customer'
-                    ? 409
-                    : message === 'household_not_found'
-                    ? 404
-                    : message === 'missing_payment_method'
-                    ? 409
-                    : 500;
+            error.status = HttpStatus.BAD_REQUEST;
 
-            if (code !== 500)
-                return response.status(code).json({ error: message });
-
-            console.error('[MemberSubscriptionController.subscribe]', error);
-
-            return response.status(500).json({ error: 'internal_error' });
+            throw error;
         }
-    };
-    cancel = async (request: Request, response: Response) => {
-        try {
-            const { id } = request.params;
 
-            const payload = await service.cancel(id);
+        const payload = await this.service.subscribe(id);
 
-            return response.status(200).json(payload);
-        } catch (error: any) {
-            const message = String(error?.message || '');
-            
-            const code =
-                message === 'member_not_found'
-                    ? 404
-                    : message === 'member_not_subscribed'
-                    ? 409
-                    : 500;
+        return response.status(HttpStatus.CREATED).json(payload);
+    }
 
-            if (code !== 500) return response.status(code).json({ error: message });
+    public async cancel(request: Request, response: Response) {
+        const { id } = request.params;
 
-            console.error('[MemberSubscriptionController.cancel]', error);
-
-            return response.status(500).json({ error: 'internal_error' });
+        if (!id) {
+            const error: any = new Error('member_id_required');
+            error.status = HttpStatus.BAD_REQUEST;
+            throw error;
         }
-    };
+
+        const payload = await this.service.cancel(id);
+
+        return response.status(HttpStatus.OK).json(payload);
+    }
 }

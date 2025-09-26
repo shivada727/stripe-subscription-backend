@@ -1,37 +1,46 @@
+import { ACTIVATION_THRESHOLD, THouseholdKind } from '../../domain/household';
 import { resolveFutureMonthlyAnchor } from '../../utils/billing';
+import { stripeService } from '../../infrastructure';
 import { Household } from '../../models/households';
-import { StripeService } from '../StripeService';
 import { Member } from '../../models/members';
 
-const stripeService = new StripeService();
-
 export class MemberSubscriptionService {
-    async subscribe(memberId: string) {
+    public async subscribe(memberId: string) {
         const member = await Member.findById(memberId);
 
         if (!member) throw new Error('member_not_found');
-
         if (!member.stripeCustomerId)
             throw new Error('member_missing_customer');
 
-        if (
-            !(await stripeService.hasDefaultPaymentMethod(
-                member.stripeCustomerId
-            ))
-        ) {
-            throw new Error('missing_payment_method');
-        }
-
-        if (member.stripeSubscriptionId) {
-            return {
-                subscriptionId: member.stripeSubscriptionId,
-                alreadySubscribed: true,
-            };
-        }
-
         const household = await Household.findById(member.householdId).lean();
-
         if (!household) throw new Error('household_not_found');
+
+        const kind = household.kind as THouseholdKind;
+        const threshold = ACTIVATION_THRESHOLD[kind];
+
+        const members = await Member.find({
+            householdId: household._id,
+        }).lean();
+
+        const flags = await Promise.all(
+            members.map(async (member) => {
+                if (!member.stripeCustomerId) return false;
+
+                return await stripeService.hasDefaultPaymentMethod(
+                    member.stripeCustomerId
+                );
+            })
+        );
+
+        const readyCount = flags.filter(Boolean).length;
+
+        if (readyCount < threshold) throw new Error('activation_blocked');
+
+        const hasPaymentMethod = await stripeService.hasDefaultPaymentMethod(
+            member.stripeCustomerId
+        );
+
+        if (!hasPaymentMethod) throw new Error('missing_payment_method');
 
         const anchor = resolveFutureMonthlyAnchor(household.anchorAt);
 
@@ -42,7 +51,6 @@ export class MemberSubscriptionService {
         });
 
         member.stripeSubscriptionId = subscription.id;
-
         await member.save();
 
         return {
@@ -54,7 +62,8 @@ export class MemberSubscriptionService {
                 undefined,
         };
     }
-    async cancel(memberId: string) {
+
+    public async cancel(memberId: string) {
         const member = await Member.findById(memberId);
 
         if (!member) throw new Error('member_not_found');

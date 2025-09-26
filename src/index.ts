@@ -3,8 +3,10 @@ import express from 'express';
 import members from './routes/members';
 import webhooks from './routes/webhooks';
 import households from './routes/households';
-import householdsQuery from './routes/householdQuery';
+import membersInfo from './routes/memberInfo';
+import householdsInfo from './routes/householdInfo';
 import { DataBaseConnection } from './services/DataBaseConnectionService';
+import { errorHandler } from './middlewares/errorsHandler';
 
 const PORT = Number(process.env.PORT);
 
@@ -12,15 +14,18 @@ dotenv.config();
 
 export const app = express();
 
-app.use('/webhooks', webhooks);
+app.use(webhooks);
 app.use(express.json());
 app.use(households);
 app.use(members);
-app.use(householdsQuery);
+app.use(householdsInfo);
+app.use(membersInfo);
 
 app.get('/health', (_request, response) => {
     response.json({ ok: true, ts: new Date().toISOString() });
 });
+
+app.use(errorHandler);
 
 export const dataBaseConnection = new DataBaseConnection();
 dataBaseConnection.connectMongodb();

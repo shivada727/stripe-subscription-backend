@@ -1,15 +1,14 @@
 import Stripe from 'stripe';
+import { getStripeKey } from '../../utils/stripeKey';
 
 export class StripeService {
     private stripe: Stripe;
 
-    constructor(secret = process.env.STRIPE_SECRET_KEY!) {
-        if (!secret) throw new Error('Missing STRIPE_SECRET_KEY');
-
-        this.stripe = new Stripe(secret);
+    constructor(stripe: Stripe = new Stripe(getStripeKey())) {
+        this.stripe = stripe;
     }
 
-    async ensureCustomer(opts: {
+    public async ensureCustomer(opts: {
         email?: string;
         name?: string;
         metadata?: Record<string, string>;
@@ -23,7 +22,7 @@ export class StripeService {
         return customer.id;
     }
 
-    async createSetupIntent(customerId: string) {
+    public async createSetupIntent(customerId: string) {
         const setupIntent = await this.stripe.setupIntents.create({
             customer: customerId,
             payment_method_types: ['card'],
@@ -33,7 +32,7 @@ export class StripeService {
         return { id: setupIntent.id, clientSecret: setupIntent.client_secret! };
     }
 
-    async createSubscription(params: {
+    public async createSubscription(params: {
         customerId: string;
         priceId: string;
         anchorAt: number;
@@ -49,7 +48,7 @@ export class StripeService {
         return subscription;
     }
 
-    async cancelSubscriptionAtPeriodEnd(subscriptionId: string) {
+    public async cancelSubscriptionAtPeriodEnd(subscriptionId: string) {
         const subscribe = await this.stripe.subscriptions.update(
             subscriptionId,
             {
@@ -72,11 +71,11 @@ export class StripeService {
         };
     }
 
-    async hasDefaultPaymentMethod(customerId: string) {
+    public async hasDefaultPaymentMethod(customerId: string) {
         const customerResponse = await this.stripe.customers.retrieve(
             customerId
         );
-        
+
         const customer = customerResponse as Stripe.Customer;
 
         const defaultPaymentMethod =
