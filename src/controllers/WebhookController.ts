@@ -1,28 +1,49 @@
 import Stripe from 'stripe';
 import { WebhookService } from '../services/WebhookService';
-import type { Request, Response } from 'express';
+import { HttpStatus } from '../domain/httpStatuses';
+import { StripeHeader } from '../domain/headers';
+import { Request, Response } from 'express';
 
 export class WebhookController {
-    private stripe: Stripe;
-    private service: WebhookService;
+    private readonly stripe: Stripe;
+    private readonly service: WebhookService;
+    private readonly handlers: Record<
+        string,
+        (event: Stripe.Event) => Promise<void>
+    >;
 
-    constructor(secret = process.env.STRIPE_SECRET_KEY as string) {
+    constructor(
+        secret: string = process.env.STRIPE_SECRET_KEY as string,
+        service: WebhookService = new WebhookService()
+    ) {
         if (!secret) throw new Error('Missing STRIPE_SECRET_KEY');
 
         this.stripe = new Stripe(secret);
+        this.service = service;
 
-        this.service = new WebhookService();
+        this.handlers = {
+            'invoice.paid': (event) => this.service.onInvoicePaid(event),
+            'invoice.payment_failed': (event) =>
+                this.service.onInvoicePaymentFailed(event),
+            'customer.subscription.deleted': (event) =>
+                this.service.onSubscriptionDeleted(event),
+        };
     }
 
-    handleStripe = async (request: Request, response: Response) => {
-        const signature = request.header('stripe-signature');
+    public async handleStripe(request: Request, response: Response) {
+        const signature = request.header(StripeHeader.Signature);
+        const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-        const secret = process.env.STRIPE_WEBHOOK_SECRET;
+        if (!signature || !webhookSecret) {
+            const error: any = new Error(
+                'Missing stripe-signature or webhook secret'
+            );
 
-        if (!signature || !secret)
-            return response
-                .status(400)
-                .send('Missing stripe-signature or webhook secret');
+            error.status = HttpStatus.BAD_REQUEST;
+            error.asText = true;
+
+            throw error;
+        }
 
         let event: Stripe.Event;
 
@@ -30,40 +51,31 @@ export class WebhookController {
             event = this.stripe.webhooks.constructEvent(
                 request.body as Buffer,
                 signature,
-                secret
+                webhookSecret
             );
-        } catch (error: any) {
-            console.error('❌ Webhook verify failed:', error.message);
+        } catch (err: any) {
+            const error: any = new Error(
+                `Webhook Error: ${err?.message || 'invalid_payload'}`
+            );
 
-            return response.status(400).send(`Webhook Error: ${error.message}`);
+            error.status = HttpStatus.BAD_REQUEST;
+            error.asText = true;
+
+            throw error;
         }
 
-        try {
-            await this.service.markProcessedOrThrow(event.id);
+        await this.service.markProcessedOrThrow(event.id);
 
-            switch (event.type) {
-                case 'invoice.paid':
-                    await this.service.onInvoicePaid(event);
-                    break;
-                case 'invoice.payment_failed':
-                    await this.service.onInvoicePaymentFailed(event);
-                    break;
-                case 'customer.subscription.deleted':
-                    await this.service.onSubscriptionDeleted(event);
-                    break;
-                default:
-                    console.log('ℹ️  Unhandled event type:', event.type);
-            }
+        const handler = this.handlers[event.type];
 
-            return response.json({ received: true });
-        } catch (error: any) {
-            if (error?.code === 'event_already_processed') {
-                return response.json({ received: true, duplicate: true });
-            }
+        if (!handler) {
+            console.log('Unhandled event type:', event.type);
 
-            console.error('🔥 Webhook handler failed:', error);
-
-            return response.status(500).json({ error: 'handler_failed' });
+            return response.status(HttpStatus.OK).json({ received: true });
         }
-    };
+
+        await handler(event);
+
+        return response.status(HttpStatus.OK).json({ received: true });
+    }
 }

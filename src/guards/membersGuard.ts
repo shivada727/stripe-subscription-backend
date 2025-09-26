@@ -1,6 +1,6 @@
-import type { TJoinHouseholdInput } from '../types';
+import { IJoinHouseholdInput } from '../domain/household/dto';
 
-export function guardJoinHouseholdBody(body: any): TJoinHouseholdInput {
+export function guardJoinHouseholdBody(body: any): IJoinHouseholdInput {
     const { address, postalCode, userId } = body ?? {};
 
     if (typeof address !== 'string' || address.trim().length < 5) {
@@ -10,12 +10,19 @@ export function guardJoinHouseholdBody(body: any): TJoinHouseholdInput {
         throw new Error('postalCode is required');
     }
 
+    const trimmedAddress = address.trim();
+    const trimmedPostalCode = postalCode.trim();
+
+    let normalizedUserId: string | undefined;
+
+    if (typeof userId === 'string') {
+        const trimmedUserId = userId.trim();
+        if (trimmedUserId) normalizedUserId = trimmedUserId;
+    }
+
     return {
-        address: address.trim(),
-        postalCode: postalCode.trim(),
-        userId:
-            typeof userId === 'string' && userId.trim()
-                ? userId.trim()
-                : undefined,
+        address: trimmedAddress,
+        postalCode: trimmedPostalCode,
+        userId: normalizedUserId,
     };
 }

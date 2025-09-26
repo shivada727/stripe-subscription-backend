@@ -1,10 +1,8 @@
-import { StripeService } from '../StripeService';
+import { stripeService } from '../../infrastructure';
 import { Member } from '../../models/members';
 
-const stripeService = new StripeService();
-
 export class MemberPaymentService {
-    async createSetupIntent(memberId: string) {
+    public async createSetupIntent(memberId: string) {
         const member = await Member.findById(memberId);
 
         if (!member) throw new Error('member_not_found');

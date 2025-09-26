@@ -1,22 +1,47 @@
 export function resolveFutureMonthlyAnchor(anchorAt: number): number {
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (!Number.isFinite(anchorAt)) return nowSec + 60; 
+    const nowInSeconds = Math.floor(Date.now() / 1000);
 
-  if (anchorAt > nowSec) return Math.floor(anchorAt);
+    if (!Number.isFinite(anchorAt)) {
+        return nowInSeconds + 60;
+    }
 
-  const base = new Date(anchorAt * 1000); 
-  const now = new Date(nowSec * 1000);
+    if (anchorAt > nowInSeconds) {
+        return Math.floor(anchorAt);
+    }
 
-  const targetDay = base.getUTCDate();
-  const H = base.getUTCHours(), M = base.getUTCMinutes(), S = base.getUTCSeconds();
+    const baseDate = new Date(anchorAt * 1000);
+    const nowDate = new Date(nowInSeconds * 1000);
 
-  let year = now.getUTCFullYear();
-  let month = now.getUTCMonth() + 1; 
-  if (month > 11) { month = 0; year += 1; }
+    const targetDay = baseDate.getUTCDate();
+    const targetHour = baseDate.getUTCHours();
+    const targetMinute = baseDate.getUTCMinutes();
+    const targetSecond = baseDate.getUTCSeconds();
 
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const day = Math.min(targetDay, lastDay);
+    let year = nowDate.getUTCFullYear();
+    let month = nowDate.getUTCMonth() + 1;
 
-  const next = Math.floor(Date.UTC(year, month, day, H, M, S) / 1000);
-  return next > nowSec ? next : nowSec + 60;
+    if (month > 11) {
+        month = 0;
+        year += 1;
+    }
+
+    const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const scheduledDay = Math.min(targetDay, lastDayOfMonth);
+
+    const nextAnchor = Math.floor(
+        Date.UTC(
+            year,
+            month,
+            scheduledDay,
+            targetHour,
+            targetMinute,
+            targetSecond
+        ) / 1000
+    );
+
+    if (nextAnchor > nowInSeconds) {
+        return nextAnchor;
+    }
+
+    return nowInSeconds + 60;
 }

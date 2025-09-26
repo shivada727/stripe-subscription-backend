@@ -2,7 +2,7 @@ import { WebhookEvent } from '../../models/webhooks';
 import { Member } from '../../models/members';
 
 export class WebhookService {
-    async markProcessedOrThrow(eventId: string) {
+    public async markProcessedOrThrow(eventId: string) {
         try {
             await WebhookEvent.create({ _id: eventId });
         } catch {
@@ -26,7 +26,7 @@ export class WebhookService {
         ).exec();
     }
 
-    async onInvoicePaid(event: any) {
+    public async onInvoicePaid(event: any) {
         const inv = event.data.object;
 
         const subId: string | undefined =
@@ -35,7 +35,7 @@ export class WebhookService {
         await this.patchMemberBySubscriptionId(subId, { status: 'active' });
     }
 
-    async onInvoicePaymentFailed(event: any) {
+    public async onInvoicePaymentFailed(event: any) {
         const inv = event.data.object;
 
         const subId: string | undefined =
@@ -44,9 +44,11 @@ export class WebhookService {
         await this.patchMemberBySubscriptionId(subId, { status: 'past_due' });
     }
 
-    async onSubscriptionDeleted(event: any) {
-        const sub = event.data.object;
+    public async onSubscriptionDeleted(event: any) {
+        const subscribtion = event.data.object;
 
-        await this.patchMemberBySubscriptionId(sub?.id, { status: 'canceled' });
+        await this.patchMemberBySubscriptionId(subscribtion?.id, {
+            status: 'canceled',
+        });
     }
 }
